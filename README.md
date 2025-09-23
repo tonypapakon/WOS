@@ -583,8 +583,6 @@ I welcome contributions! Please follow these steps:
 
 ### Development Guidelines
 
-- Follow PEP 8 for Python code
-- Use ESLint and Prettier for JavaScript code
 - Write unit tests for new features
 - Update documentation for API changes
 - Ensure all tests pass before submitting PR
@@ -611,6 +609,6 @@ For commercial support, custom development, or enterprise deployment assistance,
 
 **Built with ❤️ for the hospitality industry**
 
-[⭐ Star this repo](https://github.com/tonypapakon/wireless_ordering_system) | [🐛 Report Bug](https://github.com/tonypapakon/wireless_ordering_system/issues)
+[⭐ Star this repo](https://github.com/tonypapakon/WOS) | [🐛 Report Bug](https://github.com/tonypapakon/WOS/issues)
 
 </div>
