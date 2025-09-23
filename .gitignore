@@ -365,6 +365,12 @@ startup_scripts/
 local_config/
 custom_themes/
 
+# API Response Files (contain sensitive tokens and test data)
+*.json
+!client/public/manifest.json
+!client/package.json
+!package.json
+
 # Docker
 .dockerignore
 docker-compose.override.yml

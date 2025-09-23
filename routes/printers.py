@@ -3,12 +3,39 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import PrinterConfig, Order, OrderItem, User, db
 import socket
 from datetime import datetime
+from flask import current_app
+
+def emit_socketio_event(event_name, data, room=None):
+    """Helper to emit socketio events if socketio is available"""
+    try:
+        from app import socketio
+        # Emit to the specified room (if any) and also broadcast globally so
+        # clients that didn't join the room still receive the event.
+        try:
+            if room:
+                socketio.emit(event_name, data, room=room)
+        except Exception:
+            # proceed to global emit
+            pass
+        # global emit
+        socketio.emit(event_name, data)
+    except Exception as e:
+        # Don't fail printing just because socket emit failed; log and continue
+        current_app.logger.debug(f"SocketIO emit failed for {event_name}: {e}")
 
 printers_bp = Blueprint('printers', __name__)
 
 def send_to_thermal_printer(printer_ip, printer_port, content):
     """Send content to thermal printer via network"""
     try:
+        # special-case: virtual console printer for local testing
+        if isinstance(printer_ip, str) and printer_ip.lower() in ('console', 'stdout', 'virtual'):
+            # Print to the server stdout so developers can see the print output in terminal
+            print("\n" + "#"*10 + " VIRTUAL PRINTER (console) " + "#"*10)
+            print(content)
+            print("#"*48 + "\n")
+            return True, "Printed to console"
+
         # Create socket connection
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)  # 5 second timeout
@@ -27,20 +54,29 @@ def format_kitchen_order(order):
     content = "\n" + "="*32 + "\n"
     content += f"KITCHEN ORDER\n"
     content += f"Order: {order.order_number}\n"
-    content += f"Table: {order.table.table_number}\n"
-    content += f"Waiter: {order.waiter.first_name} {order.waiter.last_name}\n"
-    content += f"Time: {order.created_at.strftime('%H:%M:%S')}\n"
+    table_number = order.table.table_number if getattr(order, 'table', None) else 'N/A'
+    waiter_name = f"{order.waiter.first_name} {order.waiter.last_name}" if getattr(order, 'waiter', None) else 'Unknown'
+    created_time = order.created_at.strftime('%H:%M:%S') if getattr(order, 'created_at', None) else 'Unknown'
+    content += f"Table: {table_number}\n"
+    content += f"Waiter: {waiter_name}\n"
+    content += f"Time: {created_time}\n"
     content += "="*32 + "\n\n"
     
-    # Filter kitchen items
-    kitchen_items = [item for item in order.items 
-                    if item.menu_item.category.printer_destination == 'kitchen']
+    # Filter kitchen items (guard missing relationships)
+    kitchen_items = []
+    for item in getattr(order, 'items', []) or []:
+        menu_item = getattr(item, 'menu_item', None)
+        category = getattr(menu_item, 'category', None) if menu_item else None
+        destination = getattr(category, 'printer_destination', None) if category else None
+        if destination == 'kitchen':
+            kitchen_items.append(item)
     
-    for item in kitchen_items:
-        content += f"{item.quantity}x {item.menu_item.name}\n"
-        if item.special_instructions:
-            content += f"   Note: {item.special_instructions}\n"
-        content += "\n"
+        for item in kitchen_items:
+            name = getattr(getattr(item, 'menu_item', None), 'name', 'Unknown Item')
+            content += f"{getattr(item, 'quantity', 0)}x {name}\n"
+            if getattr(item, 'special_instructions', None):
+                content += f"   Note: {item.special_instructions}\n"
+            content += "\n"
     
     content += "="*32 + "\n"
     content += f"Total Kitchen Items: {len(kitchen_items)}\n"
@@ -53,20 +89,29 @@ def format_bar_order(order):
     content = "\n" + "="*32 + "\n"
     content += f"BAR ORDER\n"
     content += f"Order: {order.order_number}\n"
-    content += f"Table: {order.table.table_number}\n"
-    content += f"Waiter: {order.waiter.first_name} {order.waiter.last_name}\n"
-    content += f"Time: {order.created_at.strftime('%H:%M:%S')}\n"
+    table_number = order.table.table_number if getattr(order, 'table', None) else 'N/A'
+    waiter_name = f"{order.waiter.first_name} {order.waiter.last_name}" if getattr(order, 'waiter', None) else 'Unknown'
+    created_time = order.created_at.strftime('%H:%M:%S') if getattr(order, 'created_at', None) else 'Unknown'
+    content += f"Table: {table_number}\n"
+    content += f"Waiter: {waiter_name}\n"
+    content += f"Time: {created_time}\n"
     content += "="*32 + "\n\n"
     
     # Filter bar items
-    bar_items = [item for item in order.items 
-                if item.menu_item.category.printer_destination == 'bar']
+    bar_items = []
+    for item in getattr(order, 'items', []) or []:
+        menu_item = getattr(item, 'menu_item', None)
+        category = getattr(menu_item, 'category', None) if menu_item else None
+        destination = getattr(category, 'printer_destination', None) if category else None
+        if destination == 'bar':
+            bar_items.append(item)
     
-    for item in bar_items:
-        content += f"{item.quantity}x {item.menu_item.name}\n"
-        if item.special_instructions:
-            content += f"   Note: {item.special_instructions}\n"
-        content += "\n"
+        for item in bar_items:
+            name = getattr(getattr(item, 'menu_item', None), 'name', 'Unknown Item')
+            content += f"{getattr(item, 'quantity', 0)}x {name}\n"
+            if getattr(item, 'special_instructions', None):
+                content += f"   Note: {item.special_instructions}\n"
+            content += "\n"
     
     content += "="*32 + "\n"
     content += f"Total Bar Items: {len(bar_items)}\n"
@@ -83,16 +128,22 @@ def format_receipt(order):
     content += f"Tel: (555) 123-4567\n"
     content += "="*32 + "\n"
     content += f"Order: {order.order_number}\n"
-    content += f"Table: {order.table.table_number}\n"
-    content += f"Waiter: {order.waiter.first_name} {order.waiter.last_name}\n"
-    content += f"Date: {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+    table_number = order.table.table_number if getattr(order, 'table', None) else 'N/A'
+    waiter_name = f"{order.waiter.first_name} {order.waiter.last_name}" if getattr(order, 'waiter', None) else 'Unknown'
+    created_date = order.created_at.strftime('%Y-%m-%d %H:%M:%S') if getattr(order, 'created_at', None) else 'Unknown'
+    content += f"Table: {table_number}\n"
+    content += f"Waiter: {waiter_name}\n"
+    content += f"Date: {created_date}\n"
     content += "="*32 + "\n\n"
     
-    for item in order.items:
-        content += f"{item.quantity}x {item.menu_item.name}\n"
-        content += f"   ${float(item.unit_price):.2f} each\n"
-        content += f"   Subtotal: ${float(item.total_price):.2f}\n"
-        if item.special_instructions:
+    for item in getattr(order, 'items', []) or []:
+        name = getattr(getattr(item, 'menu_item', None), 'name', 'Unknown Item')
+        unit_price = float(getattr(item, 'unit_price', 0)) if getattr(item, 'unit_price', None) is not None else 0.0
+        total_price = float(getattr(item, 'total_price', 0)) if getattr(item, 'total_price', None) is not None else 0.0
+        content += f"{getattr(item, 'quantity', 0)}x {name}\n"
+        content += f"   ${unit_price:.2f} each\n"
+        content += f"   Subtotal: ${total_price:.2f}\n"
+        if getattr(item, 'special_instructions', None):
             content += f"   Note: {item.special_instructions}\n"
         content += "\n"
     
@@ -218,13 +269,51 @@ def print_order(order_id):
                     content = format_receipt(order)
                 else:
                     continue
-                
-                # Send to printer
-                success, message = send_to_thermal_printer(
-                    printer.ip_address,
-                    printer.port,
-                    content
-                )
+
+                # Special-case: treat missing/console-like ip addresses as virtual console printers
+                ip = printer.ip_address if printer.ip_address is not None else ''
+                # Debug info: log the ip representation and type
+                try:
+                    from flask import current_app
+                    current_app.logger.debug(f"printer '{printer.name}' ip repr={repr(ip)} type={type(ip)}")
+                except Exception:
+                    pass
+                if isinstance(ip, str) and ip.strip().lower() in ('', 'console', 'stdout', 'virtual'):
+                    banner = "\n" + "#"*10 + f" VIRTUAL PRINTER ({printer.name}) " + "#"*10
+                    footer = "#"*48 + "\n"
+                    print(banner)
+                    print(content)
+                    print(footer)
+                    success, message = True, 'Printed to console (direct)'
+
+                    # Emit the printed content over Socket.IO so a virtual printer client can display it
+                    try:
+                        emit_socketio_event('print_output', {
+                            'printer_name': printer.name,
+                            'printer_type': printer.printer_type,
+                            'content': content
+                        }, room='restaurant')
+                    except Exception:
+                        current_app.logger.debug('Failed to emit print_output event')
+                else:
+                    # Send to printer
+
+                    success, message = send_to_thermal_printer(
+                        printer.ip_address,
+                        printer.port,
+                        content
+                    )
+
+                    # If send succeeded, also emit content so virtual printers can capture it
+                    if success:
+                        try:
+                            emit_socketio_event('print_output', {
+                                'printer_name': printer.name,
+                                'printer_type': printer.printer_type,
+                                'content': content
+                            }, room='restaurant')
+                        except Exception:
+                            current_app.logger.debug('Failed to emit print_output after send')
                 
                 results.append({
                     'printer_name': printer.name,

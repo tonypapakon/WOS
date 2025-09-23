@@ -7,6 +7,7 @@ from sqlalchemy import and_, or_, func
 from decimal import Decimal
 import json
 import uuid
+import traceback
 
 orders_bp = Blueprint('orders', __name__)
 
@@ -175,7 +176,12 @@ def get_orders():
 @jwt_required()
 def create_order():
     try:
-        current_user_id = get_jwt_identity()
+        ident = get_jwt_identity()
+        try:
+            # JWT identity may be a stringified int; coerce when possible
+            current_user_id = int(ident)
+        except Exception:
+            current_user_id = ident
         data = request.get_json()
         
         # Debug: Print incoming request data
@@ -192,6 +198,9 @@ def create_order():
         
         # Fetch current user
         current_user = User.query.get(current_user_id)
+        if not current_user:
+            current_app.logger.warning(f"create_order: JWT identity {current_user_id} did not match any user")
+            return jsonify({'error': 'User not found'}), 401
         
         # Validate and determine location
         location_id = data.get('location_id')
@@ -252,7 +261,6 @@ def create_order():
             location_id=actual_location_id,  # Using validated location_id
             notes=data.get('notes', ''),
             customer_name=customer_name,
-            customer_address=customer_address,
             estimated_ready_time=estimated_ready_time
         )
         
@@ -339,6 +347,14 @@ def create_order():
         new_order.total_amount = total_amount
         new_order.tax_amount = tax_amount
         new_order.discount_amount = discount_amount
+
+        # If the Order model has a customer_address column, set it (backwards-compatible)
+        try:
+            if hasattr(new_order, 'customer_address'):
+                new_order.customer_address = customer_address
+        except Exception:
+            # Defensive: ignore if attribute cannot be set
+            current_app.logger.debug('Could not set customer_address on Order (attribute missing or read-only)')
         
         # Double check we don't use client-provided total_amount
         if 'total_amount' in data:
@@ -470,6 +486,8 @@ def create_order():
         }), 201
         
     except Exception as e:
+        # Log full traceback for easier debugging without exposing internals to clients
+        current_app.logger.exception("Order creation failed")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
