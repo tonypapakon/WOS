@@ -335,23 +335,30 @@ def get_menu_performance():
         if not date_to:
             date_to = datetime.now().isoformat()
         
-        # Query menu item performance
-        item_performance = db.session.query(
-            MenuItem.id,
-            MenuItem.name,
-            MenuItem.price,
-            func.sum(OrderItem.quantity).label('total_quantity'),
-            func.sum(OrderItem.total_price).label('total_revenue'),
-            func.count(func.distinct(Order.id)).label('orders_count')
-        ).join(OrderItem).join(Order).filter(
-            and_(
-                Order.created_at >= datetime.fromisoformat(date_from),
-                Order.created_at <= datetime.fromisoformat(date_to)
-            ),
-            Order.status.in_(['served', 'ready'])
-        ).group_by(MenuItem.id, MenuItem.name, MenuItem.price).order_by(
-            func.sum(OrderItem.quantity).desc()
-        ).all()
+
+
+        item_performance = (
+            db.session.query(
+                MenuItem.id,
+                MenuItem.name,
+                MenuItem.price,
+                func.sum(OrderItem.quantity).label('total_quantity'),
+                func.sum(OrderItem.total_price).label('total_revenue'),
+                func.count(func.distinct(Order.id)).label('orders_count')
+            )
+            .join(OrderItem, OrderItem.menu_item_id == MenuItem.id)
+            .join(Order, OrderItem.order_id == Order.id)
+            .filter(
+                and_(
+                    Order.created_at >= datetime.fromisoformat(date_from),
+                    Order.created_at <= datetime.fromisoformat(date_to)
+                ),
+                Order.status.in_(['served', 'ready', 'completed'])
+            )
+            .group_by(MenuItem.id, MenuItem.name, MenuItem.price)
+            .order_by(func.sum(OrderItem.quantity).desc())
+            .all()
+        )
         
         performance_data = []
         for item in item_performance:

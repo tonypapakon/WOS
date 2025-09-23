@@ -22,7 +22,219 @@ import api from '../config/api';
 import toast from 'react-hot-toast';
 import LoadingSpinner from './LoadingSpinner';
 
+// Reservation Modal
+const ReservationModal = ({ open, onClose, onSubmit, table }) => {
+  const [form, setForm] = React.useState({
+    name: '',
+    date: '',
+    people: table?.capacity || 2
+  });
+
+  // Reset form when table changes or modal opens
+  React.useEffect(() => {
+    if (open && table) {
+      setForm({
+        name: '',
+        date: '',
+        people: table.capacity || 2
+      });
+    }
+  }, [open, table]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.date || !form.people) return;
+    onSubmit(form);
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg max-w-sm w-full p-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900">Reserve Table {table?.table_number}</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              className="input w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date & Time</label>
+            <input
+              type="datetime-local"
+              name="date"
+              value={form.date}
+              onChange={handleChange}
+              className="input w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Number of People</label>
+            <input
+              type="number"
+              name="people"
+              min="1"
+              max={table?.capacity || 20}
+              value={form.people}
+              onChange={handleChange}
+              className="input w-full"
+              required
+            />
+          </div>
+          <div className="flex justify-end space-x-2 pt-2">
+            <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
+            <button type="submit" className="btn btn-primary">Reserve</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const VALID_TABLE_STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
+
 const TableView = () => {
+  // Reservation modal state
+  const [showReservationModal, setShowReservationModal] = useState(false);
+  const [reservationTable, setReservationTable] = useState(null);
+
+
+
+  // Handle reservation form submission
+  const handleReservationSubmit = async (reservationData) => {
+    try {
+      // Create reservation data
+      const reservationPayload = {
+        table_id: reservationTable.id,
+        customer_name: reservationData.name,
+        reservation_date: reservationData.date,
+        party_size: parseInt(reservationData.people),
+        status: 'confirmed'
+      };
+
+      // Make API call to create reservation
+      await api.post('/api/reservations', reservationPayload);
+      
+      // Update table status to reserved
+      await api.put(`/api/tables/${reservationTable.id}/status`, { status: 'reserved' });
+      
+      toast.success(`Table ${reservationTable.table_number} reserved for ${reservationData.name} on ${new Date(reservationData.date).toLocaleString()}`);
+      
+      // Refresh tables to show updated status
+      fetchTables();
+    } catch (error) {
+      console.error('Failed to create reservation:', error);
+      toast.error(error.response?.data?.message || 'Failed to create reservation');
+    } finally {
+      setShowReservationModal(false);
+      setReservationTable(null);
+    }
+  };
+
+  // Handle reservation request from right-click menu
+  const handleReserveTable = (table) => {
+    setReservationTable(table);
+    setShowReservationModal(true);
+  };
+
+  // Utility and handler functions
+  const getTotalItems = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  const getTotalAmount = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const addToCart = (item) => {
+    const existingItem = cart.find(cartItem => cartItem.id === item.id);
+    if (existingItem) {
+      setCart(cart.map(cartItem =>
+        cartItem.id === item.id
+          ? { ...cartItem, quantity: cartItem.quantity + 1 }
+          : cartItem
+      ));
+    } else {
+      setCart([...cart, { ...item, quantity: 1 }]);
+    }
+    toast.success(`${item.name} added to cart`);
+  };
+
+  const removeFromCart = (itemId) => {
+    const existingItem = cart.find(cartItem => cartItem.id === itemId);
+    if (existingItem && existingItem.quantity > 1) {
+      setCart(cart.map(cartItem =>
+        cartItem.id === itemId
+          ? { ...cartItem, quantity: cartItem.quantity - 1 }
+          : cartItem
+      ));
+    } else {
+      setCart(cart.filter(cartItem => cartItem.id !== itemId));
+    }
+  };
+
+  const submitOrder = async () => {
+    if (cart.length === 0) {
+      toast.error('Cart is empty');
+      return;
+    }
+
+    setSubmittingOrder(true);
+    try {
+      const orderData = {
+        table_id: selectedTable.id,
+        order_type: 'dine_in',
+        items: cart.map(item => ({
+          menu_item_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          special_instructions: ''
+        })),
+        total_amount: getTotalAmount()
+      };
+
+      const response = await api.post('/api/orders', orderData);
+      toast.success(`Table order #${response.data.order.order_number} created successfully!`);
+      setCart([]);
+      setShowMenu(false);
+      setSelectedTable(null);
+      fetchTables();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to create order');
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
+
+  const handleTableClick = (table) => {
+    if (isManagementMode && isAdmin) {
+      setEditingTable(table);
+      return;
+    }
+
+    if (table.has_active_orders) {
+      navigate(`/orders?table_id=${table.id}`);
+    } else if (table.status === 'reserved') {
+      // Navigate to orders for reserved tables
+      navigate(`/orders?table_id=${table.id}`);
+    } else {
+      setSelectedTable(table);
+      setShowMenu(true);
+      setCart([]);
+    }
+  };
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isManagementMode, setIsManagementMode] = useState(false);
@@ -88,98 +300,10 @@ const TableView = () => {
     }
   };
 
-  const handleTableClick = (table) => {
-    if (isManagementMode && isAdmin) {
-      setEditingTable(table);
-      return;
-    }
 
-    if (table.has_active_orders) {
-      navigate(`/orders?table_id=${table.id}`);
-    } else {
-      // Start ordering for this table
-      setSelectedTable(table);
-      setShowMenu(true);
-      setCart([]);
-    }
-  };
-
-  const addToCart = (item) => {
-    const existingItem = cart.find(cartItem => cartItem.id === item.id);
-    if (existingItem) {
-      setCart(cart.map(cartItem =>
-        cartItem.id === item.id
-          ? { ...cartItem, quantity: cartItem.quantity + 1 }
-          : cartItem
-      ));
-    } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
-    }
-    toast.success(`${item.name} added to cart`);
-  };
-
-  const removeFromCart = (itemId) => {
-    const existingItem = cart.find(cartItem => cartItem.id === itemId);
-    if (existingItem && existingItem.quantity > 1) {
-      setCart(cart.map(cartItem =>
-        cartItem.id === itemId
-          ? { ...cartItem, quantity: cartItem.quantity - 1 }
-          : cartItem
-      ));
-    } else {
-      setCart(cart.filter(cartItem => cartItem.id !== itemId));
-    }
-  };
-
-  const getTotalAmount = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-
-  const getTotalItems = () => {
-    return cart.reduce((total, item) => total + item.quantity, 0);
-  };
-
-  const submitOrder = async () => {
-    if (cart.length === 0) {
-      toast.error('Cart is empty');
-      return;
-    }
-
-    setSubmittingOrder(true);
-    try {
-      const orderData = {
-        table_id: selectedTable.id,
-        order_type: 'dine_in',
-        items: cart.map(item => ({
-          menu_item_id: item.id,
-          quantity: item.quantity,
-          unit_price: item.price,
-          special_instructions: ''
-        })),
-        total_amount: getTotalAmount()
-      };
-
-      const response = await api.post('/api/orders', orderData);
-      
-      toast.success(`Table order #${response.data.order.order_number} created successfully!`);
-      
-      // Reset state
-      setCart([]);
-      setShowMenu(false);
-      setSelectedTable(null);
-      
-      // Refresh tables to show updated status
-      fetchTables();
-      
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to create order');
-    } finally {
-      setSubmittingOrder(false);
-    }
-  };
 
   const filteredMenuItems = menuItems.filter(item => {
-    const matchesCategory = !selectedCategory || item.category_id.toString() === selectedCategory;
+    const matchesCategory = !selectedCategory || item.category_id?.toString() === selectedCategory;
     const matchesSearch = !searchTerm || 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -188,6 +312,10 @@ const TableView = () => {
   });
 
   const updateTableStatus = async (tableId, newStatus) => {
+    if (!VALID_TABLE_STATUSES.includes(newStatus)) {
+      toast.error(`Invalid status: ${newStatus}`);
+      return;
+    }
     try {
       await api.put(`/api/tables/${tableId}/status`, { status: newStatus });
       toast.success('Table status updated');
@@ -239,20 +367,20 @@ const TableView = () => {
 
   const getTableStatusColor = (table) => {
     if (table.has_active_orders) {
-      return 'border-warning-400 bg-warning-50 text-warning-700';
+      return 'border-yellow-400 bg-yellow-100 text-yellow-800';
     }
-    
+
     switch (table.status) {
       case 'available':
-        return 'border-success-400 bg-success-50 text-success-700 hover:bg-success-100';
+        return 'border-green-400 bg-green-100 text-green-800';
       case 'occupied':
-        return 'border-danger-400 bg-danger-50 text-danger-700';
+        return 'border-red-400 bg-red-100 text-red-800';
       case 'reserved':
-        return 'border-primary-400 bg-primary-50 text-primary-700';
+        return 'border-blue-400 bg-blue-100 text-blue-800';
       case 'cleaning':
-        return 'border-gray-400 bg-gray-50 text-gray-700';
+        return 'border-gray-400 bg-gray-100 text-gray-800';
       default:
-        return 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+        return 'border-gray-300 bg-white text-gray-700';
     }
   };
 
@@ -483,6 +611,13 @@ const TableView = () => {
   // Show table management interface
   return (
     <div className="space-y-6">
+      {/* Reservation Modal */}
+      <ReservationModal
+        open={showReservationModal}
+        onClose={() => setShowReservationModal(false)}
+        onSubmit={handleReservationSubmit}
+        table={reservationTable}
+      />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -490,7 +625,7 @@ const TableView = () => {
           <p className="text-gray-600">
             {isManagementMode 
               ? 'Management Mode: Click tables to edit, or add new tables'
-              : 'Click on a table to start taking orders or view existing orders'
+              : 'Left-click reserved tables to view orders. Right-click any table and select "Reserved" to make a reservation.'
             }
           </p>
         </div>
@@ -536,23 +671,23 @@ const TableView = () => {
         <h3 className="text-sm font-medium text-gray-900 mb-3">Table Status Legend</h3>
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded border-2 border-success-400 bg-success-50"></div>
+            <div className="w-4 h-4 rounded border-2 border-green-400 bg-green-100"></div>
             <span>Available</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded border-2 border-danger-400 bg-danger-50"></div>
+            <div className="w-4 h-4 rounded border-2 border-red-400 bg-red-100"></div>
             <span>Occupied</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded border-2 border-primary-400 bg-primary-50"></div>
+            <div className="w-4 h-4 rounded border-2 border-blue-400 bg-blue-100"></div>
             <span>Reserved</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded border-2 border-warning-400 bg-warning-50"></div>
+            <div className="w-4 h-4 rounded border-2 border-yellow-400 bg-yellow-100"></div>
             <span>Active Orders</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded border-2 border-gray-400 bg-gray-50"></div>
+            <div className="w-4 h-4 rounded border-2 border-gray-400 bg-gray-100"></div>
             <span>Cleaning</span>
           </div>
         </div>
@@ -572,6 +707,7 @@ const TableView = () => {
               icon={getTableIcon(table)}
               isManagementMode={isManagementMode}
               isAdmin={isAdmin}
+              onReserve={handleReserveTable}
             />
           ))}
         </div>
@@ -631,7 +767,8 @@ const TableCard = ({
   statusColor, 
   icon, 
   isManagementMode, 
-  isAdmin 
+  isAdmin,
+  onReserve
 }) => {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -643,7 +780,12 @@ const TableCard = ({
   };
 
   const handleStatusChange = (status) => {
-    onStatusChange(status);
+    if (status === 'reserved') {
+      // Show reservation modal instead of just changing status
+      onReserve(table);
+    } else {
+      onStatusChange(status);
+    }
     setShowMenu(false);
   };
 
@@ -667,6 +809,13 @@ const TableCard = ({
           {table.has_active_orders && (
             <span className="text-xs font-bold">{table.active_orders_count} orders</span>
           )}
+          {/* Status Badge */}
+          <span
+            className={`mt-1 px-2 py-0.5 rounded-full text-xs font-semibold capitalize border ${statusColor}`}
+            style={{ pointerEvents: 'none' }}
+          >
+            {table.has_active_orders ? 'Active Orders' : table.status}
+          </span>
         </div>
         
         {table.assigned_waiter && (

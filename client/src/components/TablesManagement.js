@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import api from '../config/api';
 import toast from 'react-hot-toast';
+
+const VALID_TABLE_STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
 import LoadingSpinner from './LoadingSpinner';
 
 const TablesManagement = () => {
@@ -72,14 +74,29 @@ const TablesManagement = () => {
     }
   };
 
+  // Only allow valid statuses
+  const handleStatusUpdate = async (tableId, newStatus) => {
+    if (!VALID_TABLE_STATUSES.includes(newStatus)) {
+      toast.error(`Invalid status: ${newStatus}`);
+      return;
+    }
+    try {
+      await api.put(`/api/tables/${tableId}/status`, { status: newStatus });
+      toast.success('Table status updated');
+      loadTables();
+    } catch (error) {
+      toast.error('Failed to update table status');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingTable) {
-        await api.put(`/api/admin/tables/${editingTable.id}`, formData);
+        await api.put(`/api/tables/${editingTable.id}`, formData);
         toast.success('Table updated successfully');
       } else {
-        await api.post('/api/admin/tables', formData);
+        await api.post('/api/tables', formData);
         toast.success('Table created successfully');
       }
       setShowForm(false);

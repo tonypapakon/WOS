@@ -534,6 +534,50 @@ class RefreshToken(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+class Reservation(db.Model):
+    __tablename__ = 'reservations'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    table_id = db.Column(db.Integer, db.ForeignKey('tables.id'), nullable=False, index=True)
+    customer_name = db.Column(db.String(100), nullable=False)
+    customer_phone = db.Column(db.String(20))
+    customer_email = db.Column(db.String(120))
+    party_size = db.Column(db.Integer, nullable=False)
+    reservation_date = db.Column(db.DateTime, nullable=False, index=True)
+    status = db.Column(db.String(20), default='confirmed', index=True)  # confirmed, cancelled, completed, no_show
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    table = db.relationship('Table', backref='reservations')
+    creator = db.relationship('User', backref='created_reservations')
+    
+    # Database indexes for performance
+    __table_args__ = (
+        Index('idx_reservation_table_date', 'table_id', 'reservation_date'),
+        Index('idx_reservation_status_date', 'status', 'reservation_date'),
+        Index('idx_reservation_customer', 'customer_name', 'customer_phone'),
+    )
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'table_id': self.table_id,
+            'table': self.table.to_dict() if self.table else None,
+            'customer_name': self.customer_name,
+            'customer_phone': self.customer_phone,
+            'customer_email': self.customer_email,
+            'party_size': self.party_size,
+            'reservation_date': self.reservation_date.isoformat() if self.reservation_date else None,
+            'status': self.status,
+            'notes': self.notes,
+            'created_by': self.created_by,
+            'creator': self.creator.to_dict() if self.creator else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
 class SystemConfig(db.Model):
     __tablename__ = 'system_configs'
     

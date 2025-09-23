@@ -22,6 +22,7 @@ def run_migrations():
         add_user_security_columns()
         add_order_enhancements()
         add_system_configs()
+        add_reservations_table()
         
         print("✅ Database migrations completed successfully!")
         
@@ -175,6 +176,62 @@ def add_system_configs():
     except Exception as e:
         print(f"⚠️  Error adding system configs: {str(e)}")
         db.session.rollback()
+
+def add_reservations_table():
+    """
+    Create reservations table if it doesn't exist
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        tables = inspector.get_table_names()
+        
+        if 'reservations' not in tables:
+            # Create reservations table manually
+            create_table_sql = """
+            CREATE TABLE reservations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_id INTEGER NOT NULL,
+                customer_name VARCHAR(100) NOT NULL,
+                customer_phone VARCHAR(20),
+                customer_email VARCHAR(120),
+                party_size INTEGER NOT NULL,
+                reservation_date DATETIME NOT NULL,
+                status VARCHAR(20) DEFAULT 'confirmed',
+                notes TEXT,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (table_id) REFERENCES tables(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+            """
+            
+            with db.engine.connect() as conn:
+                conn.execute(text(create_table_sql))
+                conn.commit()
+            
+            # Create indexes for reservations table
+            reservation_indexes = [
+                'CREATE INDEX idx_reservations_table_date ON reservations(table_id, reservation_date)',
+                'CREATE INDEX idx_reservations_status_date ON reservations(status, reservation_date)',
+                'CREATE INDEX idx_reservations_customer ON reservations(customer_name, customer_phone)',
+                'CREATE INDEX idx_reservations_created ON reservations(created_at)'
+            ]
+            
+            for index_sql in reservation_indexes:
+                try:
+                    with db.engine.connect() as conn:
+                        conn.execute(text(index_sql))
+                        conn.commit()
+                except Exception as e:
+                    print(f"⚠️  Could not create reservation index: {str(e)}")
+            
+            print("✅ Created reservations table with indexes")
+        else:
+            print("✅ Reservations table already exists")
+        
+    except Exception as e:
+        print(f"⚠️  Error creating reservations table: {str(e)}")
 
 def create_indexes():
     """

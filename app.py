@@ -79,6 +79,7 @@ from routes.tables import tables_bp  # noqa: E402
 from routes.reports import reports_bp  # noqa: E402
 from routes.printers import printers_bp  # noqa: E402
 from routes.admin import admin_bp  # noqa: E402
+from routes.reservations import reservations_bp  # noqa: E402
 
 # Register blueprints
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -89,6 +90,7 @@ app.register_blueprint(reports_bp, url_prefix="/api/reports")
 app.register_blueprint(printers_bp, url_prefix="/api/printers")
 app.register_blueprint(locations_bp, url_prefix="/api/locations")
 app.register_blueprint(admin_bp, url_prefix="/api/admin")
+app.register_blueprint(reservations_bp)
 
 # -------------------- Socket.IO events --------------------
 
