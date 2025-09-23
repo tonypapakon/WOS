@@ -24,6 +24,27 @@ const ReportsView = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   
+  const loadDailyReport = useCallback(async () => {
+    const response = await api.get(`/api/reports/daily-sales?date=${selectedDate}`);
+    setDailyReport(response.data);
+  }, [selectedDate]);
+
+  const loadWeeklyReport = useCallback(async () => {
+    const params = selectedWeek ? `?week_start=${selectedWeek}` : '';
+    const response = await api.get(`/api/reports/weekly-sales${params}`);
+    setWeeklyReport(response.data);
+  }, [selectedWeek]);
+
+  const loadMonthlyReport = useCallback(async () => {
+    const response = await api.get(`/api/reports/monthly-sales?year=${selectedYear}&month=${selectedMonth}`);
+    setMonthlyReport(response.data);
+  }, [selectedMonth, selectedYear]);
+
+  const loadMenuPerformance = useCallback(async () => {
+    const response = await api.get('/api/reports/menu-performance');
+    setMenuPerformance(response.data);
+  }, []);
+
   const loadReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -48,34 +69,14 @@ const ReportsView = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, selectedDate, selectedWeek, selectedMonth, selectedYear]);
+
+  }, [activeTab, loadDailyReport, loadWeeklyReport, loadMonthlyReport, loadMenuPerformance]);
 
   useEffect(() => {
     if (user?.role === 'admin' || user?.role === 'manager') {
       loadReports();
     }
   }, [user, loadReports]);
-
-  const loadDailyReport = async () => {
-    const response = await api.get(`/api/reports/daily-sales?date=${selectedDate}`);
-    setDailyReport(response.data);
-  };
-
-  const loadWeeklyReport = async () => {
-    const params = selectedWeek ? `?week_start=${selectedWeek}` : '';
-    const response = await api.get(`/api/reports/weekly-sales${params}`);
-    setWeeklyReport(response.data);
-  };
-
-  const loadMonthlyReport = async () => {
-    const response = await api.get(`/api/reports/monthly-sales?year=${selectedYear}&month=${selectedMonth}`);
-    setMonthlyReport(response.data);
-  };
-
-  const loadMenuPerformance = async () => {
-    const response = await api.get('/api/reports/menu-performance');
-    setMenuPerformance(response.data);
-  };
 
   if (user?.role !== 'admin' && user?.role !== 'manager') {
     return (
