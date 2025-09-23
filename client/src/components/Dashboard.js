@@ -158,7 +158,7 @@ const Dashboard = () => {
           title="Take New Order"
           description="Start taking orders for customers"
           icon={<ShoppingCart className="h-8 w-8" />}
-          link="/tables"
+          link="/menu"
           color="bg-primary-500"
         />
         <QuickActionCard
@@ -172,7 +172,7 @@ const Dashboard = () => {
           title="Menu Management"
           description="Update menu items and prices"
           icon={<Users className="h-8 w-8" />}
-          link="/menu"
+          link="/settings"
           color="bg-warning-500"
         />
       </div>

@@ -70,6 +70,28 @@ def create_category():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
+@menu_bp.route('/categories/<int:category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_category(category_id):
+    try:
+        current_user_id = int(get_jwt_identity())
+        current_user = User.query.get(current_user_id)
+        if current_user.role not in ['admin', 'manager']:
+            return jsonify({'error': 'Insufficient permissions'}), 403
+
+        category = Category.query.get(category_id)
+        if not category or not category.is_active:
+            return jsonify({'error': 'Category not found'}), 404
+
+        # Soft delete: set is_active to False
+        category.is_active = False
+        db.session.commit()
+
+        return jsonify({'message': 'Category deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 @menu_bp.route('/items', methods=['GET'])
 @jwt_required()
 def get_menu_items():
@@ -435,12 +457,15 @@ def delete_menu_item(item_id):
         item = MenuItem.query.get(item_id)
         if not item:
             return jsonify({'error': 'Menu item not found'}), 404
-        
-        # Soft delete - just mark as unavailable
-        item.is_available = False
+
+        # Hard delete only if the item has no order history to preserve referential integrity
+        if getattr(item, 'order_items', None) and len(item.order_items) > 0:
+            return jsonify({'error': 'Cannot delete item with order history. Consider disabling it instead.'}), 400
+
+        db.session.delete(item)
         db.session.commit()
         
-        return jsonify({'message': 'Menu item deleted successfully'}), 200
+        return jsonify({'message': 'Menu item permanently deleted'}), 200
         
     except Exception as e:
         db.session.rollback()

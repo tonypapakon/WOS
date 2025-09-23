@@ -106,6 +106,24 @@ const ReservationModal = ({ open, onClose, onSubmit, table }) => {
 const VALID_TABLE_STATUSES = ['available', 'occupied', 'reserved', 'cleaning'];
 
 const TableView = () => {
+  // Category dropdown state for admin
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  // Delete category handler
+  const handleDeleteCategory = async (categoryId) => {
+    if (!window.confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await api.delete(`/api/menu/categories/${categoryId}`);
+      toast.success('Category deleted');
+      // Remove from local state
+      setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
+      // If the deleted category was selected, reset selection
+      if (selectedCategory === categoryId.toString()) setSelectedCategory('');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to delete category');
+    }
+    setShowCategoryDropdown(false);
+  };
   // Reservation modal state
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [reservationTable, setReservationTable] = useState(null);
@@ -449,12 +467,12 @@ const TableView = () => {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 items-center">
-          <div className="relative flex-1 min-w-64">
+          <div className="relative w-full max-w-lg">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search by name, description, or barcode..."
-              className="input pl-10"
+              className="input pl-10 text-base"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -462,18 +480,64 @@ const TableView = () => {
 
           <div className="flex items-center space-x-2">
             <Filter className="h-4 w-4 text-gray-400" />
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="">All Categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            {isAdmin ? (
+              <div className="flex items-center space-x-2">
+                <div className="relative">
+                  <button
+                    className="input w-auto font-sans font-medium text-base flex items-center justify-between min-w-[180px]"
+                    type="button"
+                    onClick={() => setShowCategoryDropdown((v) => !v)}
+                  >
+                    {selectedCategory
+                      ? categories.find((c) => c.id.toString() === selectedCategory)?.name || 'Select Category'
+                      : 'All Categories'}
+                    <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {showCategoryDropdown && (
+                    <div className="absolute z-10 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[180px] max-h-60 overflow-y-auto">
+                      <button
+                        className={`block w-full text-left px-4 py-2 text-base font-sans font-medium hover:bg-gray-100 ${!selectedCategory ? 'bg-gray-100' : ''}`}
+                        onClick={() => { setSelectedCategory(''); setShowCategoryDropdown(false); }}
+                      >
+                        All Categories
+                      </button>
+                      {categories.map((category) => (
+                        <button
+                          key={category.id}
+                          className={`block w-full text-left px-4 py-2 text-base font-sans font-medium hover:bg-gray-100 ${selectedCategory === category.id.toString() ? 'bg-gray-100' : ''}`}
+                          onClick={() => { setSelectedCategory(category.id.toString()); setShowCategoryDropdown(false); }}
+                        >
+                          {category.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Show delete button next to selected category (not in dropdown) */}
+                {selectedCategory && (
+                  <button
+                    className="ml-2 p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-600"
+                    title="Delete selected category"
+                    onClick={() => handleDeleteCategory(selectedCategory)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="input w-auto font-sans font-medium text-base"
+              >
+                <option value="">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {cart.length > 0 && (

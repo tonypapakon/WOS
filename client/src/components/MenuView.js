@@ -167,14 +167,7 @@ const MenuView = () => {
     }
   };
 
-  const clearAllFilters = () => {
-    setSelectedCategory(null);
-    setSearchTerm('');
-    setOrderType('all');
-    setPriceFilter('all');
-    setAvailabilityFilter('all');
-  };
-
+  
   // Cart management functions with useCallback for performance
   const addToTableCart = useCallback((item) => {
     const existingItem = tableCart.find(cartItem => cartItem.id === item.id);
@@ -400,155 +393,219 @@ const MenuView = () => {
         </div>
       </div>
 
-      {/* Filters and Controls */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <div className="flex flex-wrap gap-4 items-center mb-4">
-          {/* Search */}
-          <div className="relative flex-1 min-w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+      {/* Search, Categories and Filters */}
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-6 shadow-lg border border-gray-100 backdrop-blur-sm">
+        {/* Search and Filters Row */}
+        <div className="flex flex-col lg:flex-row gap-4 items-start mb-4">
+          {/* Left Side - Search Bar */}
+          <div className="relative group w-80">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+            </div>
             <input
               type="text"
-              placeholder="Search by name, description, or barcode..."
-              className="input pl-10"
+              placeholder="Search menu items..."
+              className="w-full pl-10 pr-3 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          {/* Order Type Filter */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">Type:</label>
-            <select
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="all">All Items</option>
-              <option value="dine_in">Dine-In Only</option>
-              <option value="takeaway">Takeaway Available</option>
-            </select>
+          {/* Middle - Filters */}
+          <div className="flex flex-wrap gap-3 items-center flex-1">
+            {/* Order Type Filter */}
+            <div className="flex items-center space-x-2 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                <Package className="h-4 w-4 mr-2 text-blue-500" />
+                Type:
+              </label>
+              <select
+                value={orderType}
+                onChange={(e) => setOrderType(e.target.value)}
+                className="bg-transparent border-none focus:outline-none text-sm font-semibold text-gray-800 cursor-pointer min-w-0"
+              >
+                <option value="all" className="font-medium text-gray-700">All Items</option>
+                <option value="dine_in" className="font-medium text-gray-700">Dine-In Only</option>
+                <option value="takeaway" className="font-medium text-gray-700">Takeaway Available</option>
+              </select>
+            </div>
+
+            {/* Price Filter */}
+            <div className="flex items-center space-x-2 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                <DollarSign className="h-4 w-4 mr-2 text-green-500" />
+                Price:
+              </label>
+              <select
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value)}
+                className="bg-transparent border-none focus:outline-none text-sm font-semibold text-gray-800 cursor-pointer min-w-0"
+              >
+                <option value="all" className="font-medium text-gray-700">All Prices</option>
+                <option value="low" className="font-medium text-gray-700">Under €10</option>
+                <option value="medium" className="font-medium text-gray-700">€10 - €20</option>
+                <option value="high" className="font-medium text-gray-700">Over €20</option>
+              </select>
+            </div>
+
+            {/* Availability Filter */}
+            <div className="flex items-center space-x-2 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+              <label className="text-sm font-semibold text-gray-700 flex items-center">
+                <Filter className="h-4 w-4 mr-2 text-purple-500" />
+                Status:
+              </label>
+              <select
+                value={availabilityFilter}
+                onChange={(e) => setAvailabilityFilter(e.target.value)}
+                className="bg-transparent border-none focus:outline-none text-sm font-semibold text-gray-800 cursor-pointer min-w-0"
+              >
+                <option value="all" className="font-medium text-gray-700">All Items</option>
+                <option value="available" className="font-medium text-gray-700">Available</option>
+                <option value="unavailable" className="font-medium text-gray-700">Unavailable</option>
+              </select>
+            </div>
           </div>
 
-          {/* Price Filter */}
-          <div className="flex items-center space-x-2">
-            <DollarSign className="h-4 w-4 text-gray-400" />
-            <select
-              value={priceFilter}
-              onChange={(e) => setPriceFilter(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="all">All Prices</option>
-              <option value="low">Under €10</option>
-              <option value="medium">€10 - €20</option>
-              <option value="high">Over €20</option>
-            </select>
+          {/* Right Side - Controls */}
+          <div className="flex gap-3 items-center">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-white rounded-lg p-1 shadow-sm border border-gray-100">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'grid' 
+                    ? 'bg-blue-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Grid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'list' 
+                    ? 'bg-blue-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <ListIcon className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-
-          {/* Availability Filter */}
-          <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-gray-400" />
-            <select
-              value={availabilityFilter}
-              onChange={(e) => setAvailabilityFilter(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="all">All Items</option>
-              <option value="available">Available</option>
-              <option value="unavailable">Unavailable</option>
-            </select>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center space-x-1 border rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-            >
-              <Grid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400'}`}
-            >
-              <ListIcon className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Clear Filters */}
-          <button
-            onClick={clearAllFilters}
-            className="btn btn-secondary btn-sm"
-          >
-            Clear Filters
-          </button>
         </div>
 
-        {/* Active Filters Display */}
-        <div className="flex flex-wrap gap-2">
-          {selectedCategory && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              Category: {selectedCategory.name}
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="ml-1 text-blue-600 hover:text-blue-800"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          )}
-          {searchTerm && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Search: "{searchTerm}"
-              <button
-                onClick={() => setSearchTerm('')}
-                className="ml-1 text-green-600 hover:text-green-800"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          )}
-          {orderType !== 'all' && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              Type: {orderType === 'dine_in' ? 'Dine-In' : 'Takeaway'}
-              <button
-                onClick={() => setOrderType('all')}
-                className="ml-1 text-purple-600 hover:text-purple-800"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="bg-white rounded-lg p-4 shadow-sm border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Categories</h3>
-        <div className="flex flex-wrap gap-2">
+        {/* Categories */}
+        <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 transform hover:scale-105 ${
               !selectedCategory
-                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm'
             }`}
           >
-            All Categories ({allMenuItems.length})
+            All Categories
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+              !selectedCategory 
+                ? 'bg-white/20 text-white' 
+                : 'bg-gray-100 text-gray-600'
+            }`}>
+              {allMenuItems.length}
+            </span>
           </button>
           {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 transform hover:scale-105 ${
                 selectedCategory?.id === category.id
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm'
               }`}
             >
-              {category.name} ({category.item_count})
+              {category.name}
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                selectedCategory?.id === category.id 
+                  ? 'bg-white/20 text-white' 
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {category.item_count}
+              </span>
             </button>
           ))}
         </div>
+
+        {/* Active Filters Display */}
+        {(selectedCategory || searchTerm || orderType !== 'all' || priceFilter !== 'all' || availabilityFilter !== 'all') && (
+          <div className="border-t border-gray-200 pt-4">
+            <div className="flex items-center mb-3">
+              <Filter className="h-4 w-4 text-gray-500 mr-2" />
+              <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedCategory && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300">
+                  <Package className="h-3 w-3 mr-1" />
+                  {selectedCategory.name}
+                  <button
+                    onClick={() => setSelectedCategory(null)}
+                    className="ml-2 text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300">
+                  <Search className="h-3 w-3 mr-1" />
+                  "{searchTerm}"
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="ml-2 text-green-600 hover:text-green-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {orderType !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border border-purple-300">
+                  <Package className="h-3 w-3 mr-1" />
+                  {orderType === 'dine_in' ? 'Dine-In' : 'Takeaway'}
+                  <button
+                    onClick={() => setOrderType('all')}
+                    className="ml-2 text-purple-600 hover:text-purple-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {priceFilter !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 border border-yellow-300">
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  {priceFilter === 'low' ? 'Under €10' : priceFilter === 'medium' ? '€10-€20' : 'Over €20'}
+                  <button
+                    onClick={() => setPriceFilter('all')}
+                    className="ml-2 text-yellow-600 hover:text-yellow-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {availabilityFilter !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300">
+                  <Filter className="h-3 w-3 mr-1" />
+                  {availabilityFilter === 'available' ? 'Available' : 'Unavailable'}
+                  <button
+                    onClick={() => setAvailabilityFilter('all')}
+                    className="ml-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Menu Items */}

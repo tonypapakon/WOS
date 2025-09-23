@@ -212,18 +212,39 @@ const AdminMenuView = () => {
           </div>
           
           <div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="input"
-            >
-              <option value="">All Categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center space-x-2">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="input"
+              >
+                <option value="">All Categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {user?.role === 'admin' && selectedCategory && (
+                <button
+                  className="ml-2 p-2 rounded-full bg-red-100 hover:bg-red-200 text-red-600"
+                  title="Delete selected category"
+                  onClick={async () => {
+                    if (!window.confirm('Are you sure you want to delete this category?')) return;
+                    try {
+                      await api.delete(`/api/menu/categories/${selectedCategory}`);
+                      toast.success('Category deleted');
+                      setCategories((prev) => prev.filter((cat) => cat.id.toString() !== selectedCategory));
+                      setSelectedCategory('');
+                    } catch (error) {
+                      toast.error(error.response?.data?.error || 'Failed to delete category');
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="text-sm text-gray-600 flex items-center">
@@ -438,8 +459,18 @@ const MenuItemModal = ({ item, categories, onSave, onClose, onChange }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      tabIndex={-1}
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">
@@ -746,8 +777,18 @@ const CategoryModal = ({ onSave, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      tabIndex={-1}
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="bg-white rounded-lg max-w-md w-full"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Add New Category</h3>
